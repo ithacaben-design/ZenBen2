@@ -5,24 +5,24 @@
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { Sphere, MeshDistortMaterial, Environment, PerspectiveCamera, Cylinder, Box, Torus, TorusKnot, Octahedron } from '@react-three/drei';
+import { Sphere, MeshDistortMaterial, Environment, PerspectiveCamera, Cylinder, Box, Torus, TorusKnot, Octahedron, Text, useTexture } from '@react-three/drei';
 import * as THREE from 'three';
 import Matter from 'matter-js';
 
 const DIALOGUE: Record<string, string[]> = {
-  sleep: ["Rest restores the mind", "Enter the quiet", "Dream to resolve"],
-  sunlight: ["Seek the morning light", "Warmth anchors the clock", "Clarity follows the sun"],
-  movement: ["Energy flows with action", "Strengthen the vessel", "Motion is medicine"],
-  nutrition: ["Fuel with intent", "Simplicity sustains", "Nourish the core"],
-  relationships: ["Connection is life", "Presence is a gift", "We grow together"]
+  quant: ["Logic is the foundation", "Numbers tell a story", "Precision in every step"],
+  psych: ["Understand the mind", "Behavior is a map", "Empathy through insight"],
+  soc: ["Connection is life", "Presence is a gift", "We grow together"],
+  write: ["Words carry weight", "Narrative is power", "Refine the voice"],
+  math: ["Support the structure", "Build the base", "Patterns emerge"]
 };
 
 const PILLARS = [
-  { id: 'sleep', label: 'MATH 117', color: '#e67e22', shape: 'TorusKnot', args: [0.2, 0.06, 64, 8], info: "Module 6 (Statistics) online. Current Standing: 90.9% (A)." },
-  { id: 'sunlight', label: 'PSYC 103', color: '#2980b9', shape: 'Octahedron', args: [0.3], info: "Week 5 Discussion completed. Brain Assignment graded: 30/30!" },
-  { id: 'movement', label: 'HUMS 105', color: '#27ae60', shape: 'Sphere', args: [0.3, 32, 32], info: "Standing: 163.5/172.5 (A). Quiz #6 due SUN." },
-  { id: 'nutrition', label: 'ENGL 100', color: '#16a085', shape: 'Cylinder', args: [0.2, 0.2, 0.4, 16], info: "99/100 Essay 1! Standing: 272/285 (A)." },
-  { id: 'relationships', label: 'MATH 017', color: '#c0392b', shape: 'Torus', args: [0.2, 0.1, 16, 32], info: "Support modules running. Ahead of schedule in Probability." }
+  { id: 'quant', label: 'MATH 117', color: '#e67e22', shape: 'TorusKnot', args: [0.2, 0.06, 64, 8], icon: '🧮', info: "Module 6 (Statistics) online. Current Standing: 90.9% (A)." },
+  { id: 'psych', label: 'PSYC 103', color: '#2980b9', shape: 'Octahedron', args: [0.3], icon: '🧠', info: "Week 5 Discussion completed. Brain Assignment graded: 30/30!" },
+  { id: 'soc', label: 'HUMS 105', color: '#27ae60', shape: 'Sphere', args: [0.3, 32, 32], icon: '🤝', info: "Standing: 163.5/172.5 (A). Quiz #6 due SUN." },
+  { id: 'write', label: 'ENGL 100', color: '#16a085', shape: 'Cylinder', args: [0.2, 0.2, 0.4, 16], icon: '✍️', info: "99/100 Essay 1! Standing: 272/285 (A)." },
+  { id: 'math', label: 'MATH 017', color: '#c0392b', shape: 'Torus', args: [0.2, 0.1, 16, 32], icon: '📈', info: "Support modules running. Ahead of schedule in Probability." }
 ];
 
 const INSET_MODES = [
@@ -35,22 +35,22 @@ const INSET_MODES = [
 ];
 
 function MarbleMesh({ orb, body, currentMode, currentStyle, fillLevel, onClick }: { orb: any, body: Matter.Body, currentMode: string, currentStyle: string, fillLevel: number, onClick: () => void }) {
-  const meshRef = useRef<THREE.Mesh>(null);
+  const groupRef = useRef<THREE.Group>(null);
   const coreRef = useRef<THREE.Mesh>(null);
 
   useFrame(() => {
-    if (meshRef.current && body) {
-      meshRef.current.position.x = body.position.x;
-      meshRef.current.position.y = -body.position.y;
+    if (groupRef.current && body) {
+      groupRef.current.position.x = body.position.x;
+      groupRef.current.position.y = -body.position.y;
+      
       if (currentMode !== 'koi') {
-        meshRef.current.rotation.z = -body.angle;
+        groupRef.current.rotation.z = -body.angle;
       } else {
-        meshRef.current.rotation.x += 0.004;
-        meshRef.current.rotation.y += 0.004;
+        groupRef.current.rotation.x += 0.004;
+        groupRef.current.rotation.y += 0.004;
       }
+      
       if (coreRef.current) {
-        coreRef.current.position.copy(meshRef.current.position);
-        coreRef.current.rotation.copy(meshRef.current.rotation);
         coreRef.current.scale.setScalar(0.4 + fillLevel * 0.5);
       }
     }
@@ -97,9 +97,9 @@ function MarbleMesh({ orb, body, currentMode, currentStyle, fillLevel, onClick }
   }, [currentStyle, orb.color]);
 
   return (
-    <group>
+    <group ref={groupRef}>
       {/* Caustic Glow */}
-      <mesh position={[body.position.x, -body.position.y, -0.1]}>
+      <mesh position={[0, 0, -0.1]}>
         <circleGeometry args={[0.6, 32]} />
         <meshBasicMaterial color={orb.color} transparent opacity={0.15} />
       </mesh>
@@ -110,7 +110,6 @@ function MarbleMesh({ orb, body, currentMode, currentStyle, fillLevel, onClick }
       </ShapeComponent>
 
       <ShapeComponent 
-        ref={meshRef} 
         args={orb.args} 
         castShadow 
         onClick={(e: any) => {
@@ -120,30 +119,63 @@ function MarbleMesh({ orb, body, currentMode, currentStyle, fillLevel, onClick }
       >
         <meshPhysicalMaterial {...materialProps} />
       </ShapeComponent>
+
+      {/* Floating Icon */}
+      <Text
+        position={[0, 0, 0.5]}
+        fontSize={0.25}
+        color="white"
+        anchorX="center"
+        anchorY="middle"
+        outlineWidth={0.02}
+        outlineColor={orb.color}
+      >
+        {orb.icon}
+      </Text>
     </group>
   );
 }
 
-function AvatarSphere({ onClick }: { onClick: () => void }) {
+function AvatarFrame({ onClick, body }: { onClick: () => void, body: Matter.Body | null }) {
   const groupRef = useRef<THREE.Group>(null);
+  // High-quality white marble texture
+  const marbleTexture = useTexture('https://images.unsplash.com/photo-1533154683836-84ea7a0bc310?q=80&w=1000&auto=format&fit=crop');
   
   useFrame((state) => {
     if (groupRef.current) {
-      groupRef.current.rotation.y += 0.005;
-      groupRef.current.position.y = Math.sin(state.clock.elapsedTime * 2) * 0.05;
+      groupRef.current.position.y = Math.sin(state.clock.elapsedTime * 1.2) * 0.1;
+      groupRef.current.rotation.y = state.clock.elapsedTime * 0.3;
     }
   });
 
   return (
-    <group ref={groupRef} onClick={(e) => { e.stopPropagation(); onClick(); }}>
-      <Sphere args={[1.4, 64, 64]}>
-        <MeshDistortMaterial 
-          color="#10b981" 
-          attach="material" 
-          distort={0.3} 
-          speed={2} 
-          roughness={0.2} 
-          metalness={0.8} 
+    <group ref={groupRef} position={[0, 0, -3]} onClick={(e) => { e.stopPropagation(); onClick(); }}>
+      {/* Soft Blue Aura */}
+      <mesh>
+        <circleGeometry args={[2.8, 64]} />
+        <meshBasicMaterial color="#3b82f6" transparent opacity={0.1} />
+      </mesh>
+
+      {/* 3D Marble Egg */}
+      <Sphere args={[1.8, 64, 32]} scale={[1, 1.4, 1]}>
+        <meshStandardMaterial 
+          map={marbleTexture}
+          color="#ffffff"
+          roughness={0.1}
+          metalness={0.2}
+          emissive="#60a5fa"
+          emissiveIntensity={0.2}
+        />
+      </Sphere>
+
+      {/* Blue Vein Detail Layer */}
+      <Sphere args={[1.81, 64, 32]} scale={[1, 1.4, 1]}>
+        <meshStandardMaterial 
+          color="#2563eb"
+          transparent
+          opacity={0.15}
+          wireframe
+          roughness={1}
         />
       </Sphere>
     </group>
@@ -163,6 +195,8 @@ export default function App() {
 
   const engineRef = useRef<Matter.Engine | null>(null);
   const marblesRef = useRef<any[]>([]);
+  const avatarBodyRef = useRef<Matter.Body | null>(null);
+  const staticBodiesRef = useRef<Matter.Body[]>([]);
   const orbitRotationRef = useRef(0);
   const audioCtxRef = useRef<AudioContext | null>(null);
 
@@ -175,19 +209,25 @@ export default function App() {
     const runner = Matter.Runner.create();
     Matter.Runner.run(runner, engine);
 
+    // Create Avatar Body (Static)
+    const avatarBody = Matter.Bodies.circle(0, 0, 1.4, { isStatic: true, restitution: 0.8 });
+    avatarBodyRef.current = avatarBody;
+    Matter.Composite.add(engine.world, avatarBody);
+
     // Create marbles
     const marbles = PILLARS.map((pillar, i) => {
       const angle = (i / PILLARS.length) * (Math.PI * 2);
       const x = Math.cos(angle) * 3;
       const y = Math.sin(angle) * 3;
       const body = Matter.Bodies.circle(x, y, 0.3, { 
-        restitution: 0.6, 
+        restitution: 0.8, 
         friction: 0.001, 
+        frictionAir: 0.02,
         density: 0.05, 
         isSensor: true 
       });
       Matter.Composite.add(engine.world, body);
-      return { id: pillar.id, body, fillLevel: 0, logs: 0 };
+      return { id: pillar.id, body, fillLevel: 0, logs: 0, info: pillar.info };
     });
     marblesRef.current = marbles;
 
@@ -206,11 +246,102 @@ export default function App() {
       } catch (e) {}
     }
 
+    // Fetch Intel from Google Apps Script
+    const fetchIntel = async () => {
+      const url = import.meta.env.VITE_GAS_URL;
+      if (!url) return;
+      
+      try {
+        const response = await fetch(url);
+        const data = await response.json();
+        if (data.orbs) {
+          data.orbs.forEach((scriptOrb: any) => {
+            const m = marblesRef.current.find(item => item.id === scriptOrb.id);
+            if (m) {
+              m.info = scriptOrb.info;
+              // Update fillLevel if it's higher than current (to reflect grade/progress)
+              const scriptFill = scriptOrb.level / 100;
+              if (scriptFill > m.fillLevel) {
+                m.fillLevel = scriptFill;
+              }
+            }
+          });
+          checkUnlocks(marblesRef.current);
+        }
+      } catch (e) {
+        console.error("Failed to fetch intel", e);
+      }
+    };
+    fetchIntel();
+
     return () => {
       Matter.Engine.clear(engine);
       Matter.Runner.stop(runner);
     };
   }, []);
+
+  // Mode-specific Physics Setup
+  useEffect(() => {
+    if (!engineRef.current) return;
+    const world = engineRef.current.world;
+
+    // Clear old static bodies
+    staticBodiesRef.current.forEach(body => Matter.Composite.remove(world, body));
+    staticBodiesRef.current = [];
+
+    const newStatics: Matter.Body[] = [];
+
+    // Boundaries (for non-orbit modes)
+    if (currentMode !== 'orbit' && currentMode !== 'koi') {
+      const wallThickness = 1;
+      const width = 10;
+      const height = 14;
+      newStatics.push(
+        Matter.Bodies.rectangle(0, -height/2, width, wallThickness, { isStatic: true }), // Top
+        Matter.Bodies.rectangle(0, height/2, width, wallThickness, { isStatic: true }),  // Bottom
+        Matter.Bodies.rectangle(-width/2, 0, wallThickness, height, { isStatic: true }), // Left
+        Matter.Bodies.rectangle(width/2, 0, wallThickness, height, { isStatic: true })   // Right
+      );
+    }
+
+    if (currentMode === 'maze') {
+      newStatics.push(
+        Matter.Bodies.rectangle(-2, 0, 0.5, 4, { isStatic: true }),
+        Matter.Bodies.rectangle(2, -2, 4, 0.5, { isStatic: true }), // Adjusted to match visual
+        Matter.Bodies.rectangle(1, 2, 5, 0.5, { isStatic: true })   // Adjusted to match visual
+      );
+    }
+
+    if (currentMode === 'pinball') {
+      newStatics.push(
+        Matter.Bodies.circle(0, -2.5, 0.6, { isStatic: true, restitution: 1.5 }),
+        Matter.Bodies.circle(-1.5, -1, 0.5, { isStatic: true, restitution: 1.5 }),
+        Matter.Bodies.circle(1.5, -1, 0.5, { isStatic: true, restitution: 1.5 })
+      );
+    }
+
+    Matter.Composite.add(world, newStatics);
+    staticBodiesRef.current = newStatics;
+
+    // Gravity and Sensor Settings
+    if (currentMode === 'pinball') {
+      engineRef.current.gravity.y = 1.5;
+    } else if (currentMode === 'sandbox' || currentMode === 'maze') {
+      engineRef.current.gravity.y = 1.0;
+    } else {
+      engineRef.current.gravity.y = 0;
+    }
+
+    marblesRef.current.forEach(m => {
+      m.body.isSensor = (currentMode === 'orbit' || currentMode === 'koi');
+      if (currentMode === 'billiards') {
+        m.body.frictionAir = 0.005;
+      } else {
+        m.body.frictionAir = 0.02;
+      }
+    });
+
+  }, [currentMode]);
 
   const checkUnlocks = useCallback((marbles: any[]) => {
     const isSandboxUnlocked = marbles.some(m => m.fillLevel > 0);
@@ -242,13 +373,19 @@ export default function App() {
     const options: Intl.DateTimeFormatOptions = { weekday: 'long', month: 'short', day: 'numeric' };
     setCurrentDate(today.toLocaleDateString('en-US', options));
 
+    const startOfSemester = new Date('2026-01-21');
     const endOfSemester = new Date('2026-05-15');
-    const diffTime = Math.abs(endOfSemester.getTime() - today.getTime());
+    
+    const diffTime = Math.max(0, endOfSemester.getTime() - today.getTime());
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     setDaysRemaining(diffDays.toString());
     
+    const totalDuration = endOfSemester.getTime() - startOfSemester.getTime();
+    const elapsed = today.getTime() - startOfSemester.getTime();
+    const progress = Math.min(100, Math.max(0, (elapsed / totalDuration) * 100));
+    
     setTimeout(() => {
-      setProgressWidth('59.5%');
+      setProgressWidth(`${progress.toFixed(1)}%`);
     }, 500);
   }, []);
 
@@ -288,6 +425,20 @@ export default function App() {
     saveState();
   }, [checkUnlocks, saveState]);
 
+  const resetMarbles = () => {
+    if (!engineRef.current) return;
+    marblesRef.current.forEach((m, i) => {
+      const angle = (i / PILLARS.length) * (Math.PI * 2);
+      const x = Math.cos(angle) * 3;
+      const y = Math.sin(angle) * 3;
+      Matter.Body.setPosition(m.body, { x, y });
+      Matter.Body.setVelocity(m.body, { x: 0, y: 0 });
+      Matter.Body.setAngle(m.body, 0);
+      Matter.Body.setAngularVelocity(m.body, 0);
+    });
+    playAcousticTap(20);
+  };
+
   const handleWake = () => {
     if (!audioCtxRef.current) {
       audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
@@ -300,10 +451,11 @@ export default function App() {
 
   const handleOrbClick = (orb: any) => {
     logHabit(orb.id);
+    const marble = marblesRef.current.find(m => m.id === orb.id);
     setModalInfo({
       title: orb.label,
-      text: orb.info,
-      icon: '🔮',
+      text: marble?.info || orb.info,
+      icon: orb.icon,
       color: orb.color
     });
   };
@@ -319,6 +471,8 @@ export default function App() {
 
   // Physics Loop Component
   function PhysicsLoop() {
+    const { raycaster, mouse, camera } = useThree();
+
     useFrame((state) => {
       if (!engineRef.current) return;
 
@@ -331,27 +485,50 @@ export default function App() {
           Matter.Body.setPosition(m.body, { x: targetX, y: targetY });
         });
       }
+
+      if (currentMode === 'koi') {
+        marblesRef.current.forEach((m, i) => {
+          const time = state.clock.elapsedTime * 0.2;
+          const forceX = Math.sin(time + i) * 0.0002;
+          const forceY = Math.cos(time * 0.8 + i) * 0.0002;
+          Matter.Body.applyForce(m.body, m.body.position, { x: forceX, y: forceY });
+        });
+      }
     });
 
-    useEffect(() => {
-      if (!engineRef.current) return;
+    const handleBackgroundClick = (e: any) => {
+      if (currentMode === 'orbit' || currentMode === 'koi') return;
       
-      if (currentMode === 'pinball') {
-        engineRef.current.gravity.y = 1.2;
-      } else if (currentMode === 'sandbox' || currentMode === 'maze') {
-        engineRef.current.gravity.y = 1.0;
-      } else {
-        engineRef.current.gravity.y = 0;
-      }
+      // Apply a "scatter" force from click position
+      const vector = new THREE.Vector3(
+        (e.clientX / window.innerWidth) * 2 - 1,
+        -(e.clientY / window.innerHeight) * 2 + 1,
+        0.5
+      );
+      vector.unproject(camera);
+      const dir = vector.sub(camera.position).normalize();
+      const distance = -camera.position.z / dir.z;
+      const pos = camera.position.clone().add(dir.multiplyScalar(distance));
 
       marblesRef.current.forEach(m => {
-        m.body.isSensor = (currentMode === 'orbit' || currentMode === 'koi');
+        const dx = m.body.position.x - pos.x;
+        const dy = m.body.position.y - (-pos.y); // Invert Y for Matter.js
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        const force = 0.05 / (dist + 0.5);
+        Matter.Body.applyForce(m.body, m.body.position, {
+          x: (dx / dist) * force,
+          y: (dy / dist) * force
+        });
       });
-    }, [currentMode]);
+      
+      playAcousticTap(10);
+    };
 
     return (
-      <group>
-        <AvatarSphere onClick={handleAvatarClick} />
+      <group onPointerDown={(e) => {
+        if (e.intersections.length === 0) handleBackgroundClick(e);
+      }}>
+        <AvatarFrame onClick={handleAvatarClick} body={avatarBodyRef.current} />
         
         {marblesRef.current.map((m, i) => (
           <MarbleMesh 
@@ -390,6 +567,14 @@ export default function App() {
             <Cylinder args={[0.5, 0.5, 0.5, 32]} position={[1.5, 1, 0.25]} rotation={[Math.PI/2, 0, 0]}>
               <meshStandardMaterial color="#d4af37" metalness={0.9} />
             </Cylinder>
+          </group>
+        )}
+
+        {(currentMode === 'sandbox' || currentMode === 'billiards') && (
+          <group>
+            <Box args={[10, 14, 0.1]} position={[0, 0, -0.5]}>
+              <meshStandardMaterial color="#111" transparent opacity={0.3} />
+            </Box>
           </group>
         )}
 
@@ -451,22 +636,29 @@ export default function App() {
       </div>
 
       {/* MODE MENU */}
-      <div className="fixed bottom-20 left-1/2 -translate-x-1/2 flex gap-2 z-[500] bg-black/40 backdrop-blur-lg p-2 rounded-full border border-white/10 overflow-x-auto max-w-[90vw] no-scrollbar">
+      <div className="fixed bottom-20 left-1/2 -translate-x-1/2 flex gap-2 z-[500] bg-white/60 backdrop-blur-lg p-2 rounded-full border border-black/5 overflow-x-auto max-w-[90vw] no-scrollbar items-center shadow-xl">
         {INSET_MODES.map(mode => (
           <button
             key={mode.id}
             onClick={() => unlockedModes.includes(mode.id) && setCurrentMode(mode.id)}
             className={`px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest transition-all ${
               currentMode === mode.id 
-                ? 'bg-white/20 text-white shadow-lg' 
+                ? 'bg-black/10 text-black shadow-sm' 
                 : unlockedModes.includes(mode.id) 
-                  ? 'text-white/40 hover:text-white/60' 
-                  : 'text-white/10 cursor-not-allowed'
+                  ? 'text-black/40 hover:text-black/60' 
+                  : 'text-black/10 cursor-not-allowed'
             }`}
           >
             {mode.label}
           </button>
         ))}
+        <div className="w-px h-4 bg-black/10 mx-1"></div>
+        <button 
+          onClick={resetMarbles}
+          className="px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest text-black/40 hover:text-black/80 transition-all"
+        >
+          Reset
+        </button>
       </div>
 
       {/* MAIN 3D DASHBOARD */}
@@ -477,15 +669,15 @@ export default function App() {
           
           {/* Header */}
           <div className="absolute top-4 md:top-8 w-full max-w-2xl px-4 md:px-6 z-50">
-            <div className="flex justify-between text-[8px] md:text-[10px] tracking-[0.2em] md:tracking-[0.5em] opacity-60 mb-3 font-black uppercase text-gray-400">
+            <div className="flex justify-between text-[8px] md:text-[10px] tracking-[0.2em] md:tracking-[0.5em] opacity-60 mb-3 font-black uppercase text-gray-600">
               <span>JAN 21</span>
-              <span className="text-emerald-300 opacity-100 flex items-center gap-2 bg-emerald-900/30 px-3 md:px-4 py-1.5 rounded-full border border-emerald-500/30 shadow-sm whitespace-nowrap">
+              <span className="text-blue-300 opacity-100 flex items-center gap-2 bg-blue-900/30 px-3 md:px-4 py-1.5 rounded-full border border-blue-500/30 shadow-sm whitespace-nowrap">
                 <span>{daysRemaining}</span> Days To Summit
               </span>
               <span>MAY 15</span>
             </div>
             <div className="w-full h-1 bg-white/10 rounded-full relative mt-4 overflow-hidden">
-              <div className="absolute top-0 left-0 h-full bg-gradient-to-r from-emerald-800 via-emerald-500 to-teal-400 transition-all duration-1000" style={{ width: progressWidth }}></div>
+              <div className="absolute top-0 left-0 h-full bg-gradient-to-r from-blue-800 via-blue-500 to-teal-400 transition-all duration-1000" style={{ width: progressWidth }}></div>
             </div>
           </div>
 
@@ -499,6 +691,12 @@ export default function App() {
               <Canvas camera={{ position: [0, 0, 10], fov: 45 }}>
                 <PhysicsLoop />
               </Canvas>
+            </div>
+
+            {/* Avatar Labels */}
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 translate-y-28 text-center pointer-events-none z-20">
+              <h1 className="text-2xl md:text-4xl font-black tracking-[0.4em] text-blue-900 uppercase">Zen Egg</h1>
+              <p className="text-[8px] md:text-[10px] font-black tracking-[0.3em] text-blue-600 uppercase mt-2">Flow State</p>
             </div>
 
             {/* Labels (Overlay) */}
@@ -523,9 +721,9 @@ export default function App() {
           </div>
 
           {/* Footer */}
-          <div className="absolute bottom-6 md:bottom-10 text-[8px] md:text-[10px] opacity-40 uppercase tracking-[0.5em] md:tracking-[1em] font-black flex gap-6 md:gap-10 items-center select-none text-emerald-500 justify-center w-full">
-            <span>Zen Bear Scholar</span>
-            <span className="w-1.5 h-1.5 md:w-2 md:h-2 bg-emerald-500 rounded-full animate-pulse"></span>
+          <div className="absolute bottom-6 md:bottom-10 text-[8px] md:text-[10px] opacity-40 uppercase tracking-[0.5em] md:tracking-[1em] font-black flex gap-6 md:gap-10 items-center select-none text-blue-800 justify-center w-full">
+            <span>Zen Egg Scholar</span>
+            <span className="w-1.5 h-1.5 md:w-2 md:h-2 bg-blue-500 rounded-full animate-pulse"></span>
             <span>{currentDate}</span>
           </div>
         </div>
