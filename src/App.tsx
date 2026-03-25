@@ -3,9 +3,47 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo, Suspense, Component } from 'react';
+
+// Error Boundary Component
+class ErrorBoundary extends Component<{ children: React.ReactNode }, { hasError: boolean, error: any }> {
+  constructor(props: any) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: any) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: any, errorInfo: any) {
+    console.error("ErrorBoundary caught an error", error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="fixed inset-0 flex items-center justify-center bg-black text-white p-10 text-center z-[9999]">
+          <div>
+            <h1 className="text-2xl font-bold mb-4">Something went wrong</h1>
+            <p className="text-sm opacity-60 mb-6">{this.state.error?.message || "An unexpected error occurred."}</p>
+            <button 
+              onClick={() => window.location.reload()}
+              className="px-6 py-2 bg-blue-600 rounded-full text-xs font-bold uppercase tracking-widest"
+            >
+              Reload App
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { Sphere, MeshDistortMaterial, Environment, PerspectiveCamera, Cylinder, Box, Torus, TorusKnot, Octahedron, Text, useTexture } from '@react-three/drei';
+import { Sphere, MeshDistortMaterial, Environment, PerspectiveCamera, Cylinder, Box, Torus, TorusKnot, Octahedron, Text, useTexture, Html } from '@react-three/drei';
+import { Moon, Sun } from 'lucide-react';
 import * as THREE from 'three';
 import Matter from 'matter-js';
 
@@ -27,21 +65,33 @@ const PILLARS = [
 
 const INSET_MODES = [
   { id: 'orbit', color: '#a855f7', label: 'Orbit' },
-  { id: 'sandbox', color: '#777777', label: 'Sandbox' },
-  { id: 'billiards', color: '#1a5e20', label: 'Billiards' },
-  { id: 'pinball', color: '#22c55e', label: 'Pinball' },
-  { id: 'maze', color: '#3b82f6', label: 'Maze' },
-  { id: 'koi', color: '#ffffff', label: 'Koi' }
+  { id: 'sandbox', color: '#f59e0b', label: 'Sandbox' },
+  { id: 'billiards', color: '#10b981', label: 'Billiards' },
+  { id: 'pinball', color: '#ef4444', label: 'Pinball' },
+  { id: 'maze', color: '#3b82f6', label: 'Maze' }
 ];
 
 function MarbleMesh({ orb, body, currentMode, currentStyle, fillLevel, onClick }: { orb: any, body: Matter.Body, currentMode: string, currentStyle: string, fillLevel: number, onClick: () => void }) {
   const groupRef = useRef<THREE.Group>(null);
   const coreRef = useRef<THREE.Mesh>(null);
 
-  useFrame(() => {
+  useFrame((state) => {
     if (groupRef.current && body) {
       groupRef.current.position.x = body.position.x;
       groupRef.current.position.y = -body.position.y;
+      
+      if (currentMode === 'orbit') {
+        // Calculate Z depth based on position in orbit to pass in front/behind
+        const angle = Math.atan2(-body.position.y, body.position.x);
+        groupRef.current.position.z = Math.sin(angle) * 2.2;
+        
+        // Scale slightly based on depth for perspective
+        const s = 1 + (Math.sin(angle) * 0.15);
+        groupRef.current.scale.setScalar(s);
+      } else {
+        groupRef.current.position.z = 0.5;
+        groupRef.current.scale.setScalar(1);
+      }
       
       if (currentMode !== 'koi') {
         groupRef.current.rotation.z = -body.angle;
@@ -136,10 +186,12 @@ function MarbleMesh({ orb, body, currentMode, currentStyle, fillLevel, onClick }
   );
 }
 
-function AvatarFrame({ onClick, body }: { onClick: () => void, body: Matter.Body | null }) {
+function AvatarFrame({ onClick, isDarkMode }: { onClick: () => void, isDarkMode: boolean }) {
   const groupRef = useRef<THREE.Group>(null);
-  // High-quality white marble texture
-  const marbleTexture = useTexture('https://images.unsplash.com/photo-1533154683836-84ea7a0bc310?q=80&w=1000&auto=format&fit=crop');
+  
+  // Use a more reliable texture or fallback to color if it fails
+  // Using a smaller, more common Unsplash ID
+  const marbleTexture = useTexture('https://images.unsplash.com/photo-1519750783826-e2420f4d687f?q=80&w=500&auto=format&fit=crop');
   
   useFrame((state) => {
     if (groupRef.current) {
@@ -149,20 +201,22 @@ function AvatarFrame({ onClick, body }: { onClick: () => void, body: Matter.Body
   });
 
   return (
-    <group ref={groupRef} position={[0, 0, -3]} onClick={(e) => { e.stopPropagation(); onClick(); }}>
+    <group ref={groupRef} position={[0, 0, 0]} onClick={(e) => { e.stopPropagation(); onClick(); }}>
       {/* Soft Blue Aura */}
       <mesh>
         <circleGeometry args={[2.8, 64]} />
-        <meshBasicMaterial color="#3b82f6" transparent opacity={0.1} />
+        <meshBasicMaterial color="#3b82f6" transparent opacity={0.05} />
       </mesh>
 
       {/* 3D Marble Egg */}
       <Sphere args={[1.8, 64, 32]} scale={[1, 1.4, 1]}>
-        <meshStandardMaterial 
+        <MeshDistortMaterial 
           map={marbleTexture}
           color="#ffffff"
           roughness={0.1}
           metalness={0.2}
+          distort={0.2}
+          speed={2}
           emissive="#60a5fa"
           emissiveIntensity={0.2}
         />
@@ -173,7 +227,7 @@ function AvatarFrame({ onClick, body }: { onClick: () => void, body: Matter.Body
         <meshStandardMaterial 
           color="#2563eb"
           transparent
-          opacity={0.15}
+          opacity={0.1}
           wireframe
           roughness={1}
         />
@@ -182,8 +236,156 @@ function AvatarFrame({ onClick, body }: { onClick: () => void, body: Matter.Body
   );
 }
 
+function PhysicsLoop({ 
+  engineRef, 
+  marblesRef, 
+  currentMode, 
+  currentStyle, 
+  handleOrbClick, 
+  handleAvatarClick, 
+  playAcousticTap,
+  isDarkMode,
+  orbitRotationRef
+}: any) {
+  const { camera } = useThree();
+
+  useFrame((state) => {
+    if (!engineRef.current) return;
+
+    if (currentMode === 'orbit') {
+      orbitRotationRef.current += 0.005;
+      marblesRef.current.forEach((m: any, i: number) => {
+        const angle = orbitRotationRef.current + (i / PILLARS.length) * (Math.PI * 2);
+        const targetX = Math.cos(angle) * 3;
+        const targetY = Math.sin(angle) * 3;
+        Matter.Body.setPosition(m.body, { x: targetX, y: targetY });
+      });
+    }
+
+    if (currentMode === 'koi') {
+      marblesRef.current.forEach((m: any, i: number) => {
+        const time = state.clock.elapsedTime * 0.2;
+        const forceX = Math.sin(time + i) * 0.0002;
+        const forceY = Math.cos(time * 0.8 + i) * 0.0002;
+        Matter.Body.applyForce(m.body, m.body.position, { x: forceX, y: forceY });
+      });
+    }
+  });
+
+  const handleBackgroundClick = (e: any) => {
+    if (currentMode === 'orbit' || currentMode === 'koi') return;
+    
+    const vector = new THREE.Vector3(
+      (e.clientX / window.innerWidth) * 2 - 1,
+      -(e.clientY / window.innerHeight) * 2 + 1,
+      0.5
+    );
+    vector.unproject(camera);
+    const dir = vector.sub(camera.position).normalize();
+    const distance = -camera.position.z / dir.z;
+    const pos = camera.position.clone().add(dir.multiplyScalar(distance));
+
+    marblesRef.current.forEach((m: any) => {
+      const dx = m.body.position.x - pos.x;
+      const dy = m.body.position.y - (-pos.y); 
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      const force = 0.05 / (dist + 0.5);
+      Matter.Body.applyForce(m.body, m.body.position, {
+        x: (dx / dist) * force,
+        y: (dy / dist) * force
+      });
+    });
+    
+    playAcousticTap(10);
+  };
+
+  return (
+    <group onPointerDown={(e) => {
+      if (e.intersections.length === 0) handleBackgroundClick(e);
+    }}>
+      <AvatarFrame onClick={handleAvatarClick} isDarkMode={isDarkMode} />
+      
+      {currentMode === 'orbit' && (
+        <Torus args={[3, 0.01, 16, 100]} rotation={[Math.PI / 2, 0, 0]}>
+          <meshBasicMaterial color={isDarkMode ? "#ffffff" : "#000000"} transparent opacity={0.1} />
+        </Torus>
+      )}
+
+      {marblesRef.current.map((m: any, i: number) => (
+        <MarbleMesh 
+          key={m.id} 
+          orb={PILLARS[i]} 
+          body={m.body} 
+          currentMode={currentMode} 
+          currentStyle={currentStyle}
+          fillLevel={m.fillLevel}
+          onClick={() => handleOrbClick(PILLARS[i])}
+        />
+      ))}
+      
+      {currentMode === 'maze' && (
+        <group>
+          <Box args={[0.5, 4, 1.5]} position={[-2, 0, 0.75]}>
+            <meshStandardMaterial color="#3d2b1f" />
+          </Box>
+          <Box args={[4, 0.5, 1.5]} position={[2, 2, 0.75]}>
+            <meshStandardMaterial color="#3d2b1f" />
+          </Box>
+          <Box args={[5, 0.5, 1.5]} position={[1, -2, 0.75]}>
+            <meshStandardMaterial color="#3d2b1f" />
+          </Box>
+        </group>
+      )}
+
+      {currentMode === 'pinball' && (
+        <group>
+          <Cylinder args={[0.6, 0.6, 0.5, 32]} position={[0, 2.5, 0.25]} rotation={[Math.PI/2, 0, 0]}>
+            <meshStandardMaterial color="#d4af37" metalness={0.9} />
+          </Cylinder>
+          <Cylinder args={[0.5, 0.5, 0.5, 32]} position={[-1.5, 1, 0.25]} rotation={[Math.PI/2, 0, 0]}>
+            <meshStandardMaterial color="#d4af37" metalness={0.9} />
+          </Cylinder>
+          <Cylinder args={[0.5, 0.5, 0.5, 32]} position={[1.5, 1, 0.25]} rotation={[Math.PI/2, 0, 0]}>
+            <meshStandardMaterial color="#d4af37" metalness={0.9} />
+          </Cylinder>
+        </group>
+      )}
+
+      {(currentMode === 'sandbox' || currentMode === 'billiards') && (
+        <group>
+          <Box args={[10, 14, 0.1]} position={[0, 0, -0.5]}>
+            <meshStandardMaterial color="#111" transparent opacity={0.3} />
+          </Box>
+        </group>
+      )}
+
+      {currentMode === 'koi' && (
+        <group>
+          <Box args={[10, 1.5, 0.8]} position={[0, -3.8, 0.4]}>
+            <meshStandardMaterial color="#2a1d15" />
+          </Box>
+          <Sphere args={[0.5, 32, 16]} position={[-1.2, 2, 0.2]} scale={[0.6, 0.24, 0.42]}>
+            <meshStandardMaterial color="#111111" />
+          </Sphere>
+          <Sphere args={[0.5, 32, 16]} position={[1.8, 2.8, 0.2]} scale={[0.9, 0.36, 0.63]}>
+            <meshStandardMaterial color="#111111" />
+          </Sphere>
+        </group>
+      )}
+      
+      <ambientLight intensity={0.8} />
+      <directionalLight position={[5, 5, 5]} intensity={0.7} />
+      <Environment preset="city" />
+    </group>
+  );
+}
+
 export default function App() {
   const [isWoken, setIsWoken] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    const saved = localStorage.getItem('zen_egg_theme');
+    return saved ? saved === 'dark' : true; // Default to dark as per current aesthetic
+  });
   const [currentMode, setCurrentMode] = useState('orbit');
   const [currentStyle, setCurrentStyle] = useState('cats-eye');
   const [modalInfo, setModalInfo] = useState<{ title: string, text: string, icon: string, color: string } | null>(null);
@@ -199,6 +401,12 @@ export default function App() {
   const staticBodiesRef = useRef<Matter.Body[]>([]);
   const orbitRotationRef = useRef(0);
   const audioCtxRef = useRef<AudioContext | null>(null);
+
+  useEffect(() => {
+    localStorage.setItem('zen_egg_theme', isDarkMode ? 'dark' : 'light');
+  }, [isDarkMode]);
+
+  const toggleDarkMode = () => setIsDarkMode(!isDarkMode);
 
   // Initialize Physics Engine
   useEffect(() => {
@@ -470,134 +678,7 @@ export default function App() {
   };
 
   // Physics Loop Component
-  function PhysicsLoop() {
-    const { raycaster, mouse, camera } = useThree();
-
-    useFrame((state) => {
-      if (!engineRef.current) return;
-
-      if (currentMode === 'orbit') {
-        orbitRotationRef.current += 0.005;
-        marblesRef.current.forEach((m, i) => {
-          const angle = orbitRotationRef.current + (i / PILLARS.length) * (Math.PI * 2);
-          const targetX = Math.cos(angle) * 3;
-          const targetY = Math.sin(angle) * 3;
-          Matter.Body.setPosition(m.body, { x: targetX, y: targetY });
-        });
-      }
-
-      if (currentMode === 'koi') {
-        marblesRef.current.forEach((m, i) => {
-          const time = state.clock.elapsedTime * 0.2;
-          const forceX = Math.sin(time + i) * 0.0002;
-          const forceY = Math.cos(time * 0.8 + i) * 0.0002;
-          Matter.Body.applyForce(m.body, m.body.position, { x: forceX, y: forceY });
-        });
-      }
-    });
-
-    const handleBackgroundClick = (e: any) => {
-      if (currentMode === 'orbit' || currentMode === 'koi') return;
-      
-      // Apply a "scatter" force from click position
-      const vector = new THREE.Vector3(
-        (e.clientX / window.innerWidth) * 2 - 1,
-        -(e.clientY / window.innerHeight) * 2 + 1,
-        0.5
-      );
-      vector.unproject(camera);
-      const dir = vector.sub(camera.position).normalize();
-      const distance = -camera.position.z / dir.z;
-      const pos = camera.position.clone().add(dir.multiplyScalar(distance));
-
-      marblesRef.current.forEach(m => {
-        const dx = m.body.position.x - pos.x;
-        const dy = m.body.position.y - (-pos.y); // Invert Y for Matter.js
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        const force = 0.05 / (dist + 0.5);
-        Matter.Body.applyForce(m.body, m.body.position, {
-          x: (dx / dist) * force,
-          y: (dy / dist) * force
-        });
-      });
-      
-      playAcousticTap(10);
-    };
-
-    return (
-      <group onPointerDown={(e) => {
-        if (e.intersections.length === 0) handleBackgroundClick(e);
-      }}>
-        <AvatarFrame onClick={handleAvatarClick} body={avatarBodyRef.current} />
-        
-        {marblesRef.current.map((m, i) => (
-          <MarbleMesh 
-            key={m.id} 
-            orb={PILLARS[i]} 
-            body={m.body} 
-            currentMode={currentMode} 
-            currentStyle={currentStyle}
-            fillLevel={m.fillLevel}
-            onClick={() => handleOrbClick(PILLARS[i])}
-          />
-        ))}
-        
-        {currentMode === 'maze' && (
-          <group>
-            <Box args={[0.5, 4, 1.5]} position={[-2, 0, 0.75]}>
-              <meshStandardMaterial color="#3d2b1f" />
-            </Box>
-            <Box args={[4, 0.5, 1.5]} position={[2, 2, 0.75]}>
-              <meshStandardMaterial color="#3d2b1f" />
-            </Box>
-            <Box args={[5, 0.5, 1.5]} position={[1, -2, 0.75]}>
-              <meshStandardMaterial color="#3d2b1f" />
-            </Box>
-          </group>
-        )}
-
-        {currentMode === 'pinball' && (
-          <group>
-            <Cylinder args={[0.6, 0.6, 0.5, 32]} position={[0, 2.5, 0.25]} rotation={[Math.PI/2, 0, 0]}>
-              <meshStandardMaterial color="#d4af37" metalness={0.9} />
-            </Cylinder>
-            <Cylinder args={[0.5, 0.5, 0.5, 32]} position={[-1.5, 1, 0.25]} rotation={[Math.PI/2, 0, 0]}>
-              <meshStandardMaterial color="#d4af37" metalness={0.9} />
-            </Cylinder>
-            <Cylinder args={[0.5, 0.5, 0.5, 32]} position={[1.5, 1, 0.25]} rotation={[Math.PI/2, 0, 0]}>
-              <meshStandardMaterial color="#d4af37" metalness={0.9} />
-            </Cylinder>
-          </group>
-        )}
-
-        {(currentMode === 'sandbox' || currentMode === 'billiards') && (
-          <group>
-            <Box args={[10, 14, 0.1]} position={[0, 0, -0.5]}>
-              <meshStandardMaterial color="#111" transparent opacity={0.3} />
-            </Box>
-          </group>
-        )}
-
-        {currentMode === 'koi' && (
-          <group>
-            <Box args={[10, 1.5, 0.8]} position={[0, -3.8, 0.4]}>
-              <meshStandardMaterial color="#2a1d15" />
-            </Box>
-            <Sphere args={[0.5, 32, 16]} position={[-1.2, 2, 0.2]} scale={[0.6, 0.24, 0.42]}>
-              <meshStandardMaterial color="#111111" />
-            </Sphere>
-            <Sphere args={[0.5, 32, 16]} position={[1.8, 2.8, 0.2]} scale={[0.9, 0.36, 0.63]}>
-              <meshStandardMaterial color="#111111" />
-            </Sphere>
-          </group>
-        )}
-        
-        <ambientLight intensity={0.8} />
-        <directionalLight position={[5, 5, 5]} intensity={0.7} />
-        <Environment preset="city" />
-      </group>
-    );
-  }
+  // Moved outside to prevent re-definitions causing white screens
 
   // Handle Tilt for mobile
   useEffect(() => {
@@ -616,156 +697,182 @@ export default function App() {
   }, [currentMode]);
 
   return (
-    <div className="w-full h-full relative overflow-hidden bg-[#050505]">
-      {!isWoken && (
-        <div id="wake-screen" onClick={handleWake}>
-          <div id="wake-sphere"></div>
+    <ErrorBoundary>
+      <div className={`w-full h-full relative overflow-hidden transition-colors duration-500 ${isDarkMode ? 'dark bg-[#050505]' : 'bg-[#f8fafc]'}`}>
+        {!isWoken && (
+          <div id="wake-screen" onClick={handleWake}>
+            <div id="wake-sphere"></div>
+          </div>
+        )}
+
+        <div id="texture-overlay"></div>
+        <div id="dialogue-overlay" className={dialogue ? 'visible' : ''}>
+          {dialogue}
         </div>
-      )}
 
-      <div id="texture-overlay"></div>
-      <div id="dialogue-overlay" className={dialogue ? 'visible' : ''}>
-        {dialogue}
-      </div>
-
-      {/* STYLE MENU */}
-      <div id="style-menu" className="z-[500]">
-        <button onClick={() => setCurrentStyle('cats-eye')} className={`style-btn ${currentStyle === 'cats-eye' ? 'active' : ''}`}>Cat's Eye</button>
-        <button onClick={() => setCurrentStyle('vanilla')} className={`style-btn ${currentStyle === 'vanilla' ? 'active' : ''}`}>Vanilla</button>
-        <button onClick={() => setCurrentStyle('crystal')} className={`style-btn ${currentStyle === 'crystal' ? 'active' : ''}`}>Crystal</button>
-      </div>
-
-      {/* MODE MENU */}
-      <div className="fixed bottom-20 left-1/2 -translate-x-1/2 flex gap-2 z-[500] bg-white/60 backdrop-blur-lg p-2 rounded-full border border-black/5 overflow-x-auto max-w-[90vw] no-scrollbar items-center shadow-xl">
-        {INSET_MODES.map(mode => (
-          <button
-            key={mode.id}
-            onClick={() => unlockedModes.includes(mode.id) && setCurrentMode(mode.id)}
-            className={`px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest transition-all ${
-              currentMode === mode.id 
-                ? 'bg-black/10 text-black shadow-sm' 
-                : unlockedModes.includes(mode.id) 
-                  ? 'text-black/40 hover:text-black/60' 
-                  : 'text-black/10 cursor-not-allowed'
-            }`}
+        {/* STYLE MENU */}
+        <div id="style-menu" className="z-[500] flex items-center gap-3 bg-white/10 backdrop-blur-3xl p-2 rounded-full border border-white/10 shadow-2xl">
+          <button 
+            onClick={toggleDarkMode} 
+            className="p-2 rounded-full hover:bg-white/10 transition-colors text-white/60 hover:text-white"
           >
-            {mode.label}
+            {isDarkMode ? <Sun size={12} /> : <Moon size={12} />}
           </button>
-        ))}
-        <div className="w-px h-4 bg-black/10 mx-1"></div>
-        <button 
-          onClick={resetMarbles}
-          className="px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest text-black/40 hover:text-black/80 transition-all"
-        >
-          Reset
-        </button>
-      </div>
+          <div className="w-px h-3 bg-white/10"></div>
+          <button 
+            onClick={() => setCurrentStyle('cats-eye')} 
+            className={`w-3 h-3 rounded-full bg-blue-400 transition-all ${currentStyle === 'cats-eye' ? 'scale-125 ring-2 ring-white' : 'opacity-40 hover:opacity-100'}`}
+          />
+          <button 
+            onClick={() => setCurrentStyle('vanilla')} 
+            className={`w-3 h-3 rounded-full bg-white transition-all ${currentStyle === 'vanilla' ? 'scale-125 ring-2 ring-white' : 'opacity-40 hover:opacity-100'}`}
+          />
+          <button 
+            onClick={() => setCurrentStyle('crystal')} 
+            className={`w-3 h-3 rounded-full bg-cyan-200 transition-all ${currentStyle === 'crystal' ? 'scale-125 ring-2 ring-white' : 'opacity-40 hover:opacity-100'}`}
+          />
+        </div>
 
-      {/* MAIN 3D DASHBOARD */}
-      <div id="perspective-root">
-        <div id="marble-floor"></div>
+        {/* MODE MENU */}
+        <div className="fixed bottom-20 left-1/2 -translate-x-1/2 flex gap-5 z-[500] bg-white/10 dark:bg-black/20 backdrop-blur-3xl p-4 rounded-full border border-white/10 items-center shadow-2xl transition-all duration-500">
+          {INSET_MODES.map(mode => (
+            <button
+              key={mode.id}
+              onClick={() => unlockedModes.includes(mode.id) && setCurrentMode(mode.id)}
+              className={`w-3 h-3 rounded-full transition-all duration-500 relative ${
+                unlockedModes.includes(mode.id) ? 'cursor-pointer' : 'opacity-10 cursor-not-allowed'
+              } ${currentMode === mode.id ? 'scale-150 ring-4 ring-white/20' : 'hover:scale-125 opacity-60 hover:opacity-100'}`}
+              style={{ backgroundColor: mode.color }}
+            />
+          ))}
+          <div className="w-px h-4 bg-white/10 mx-1"></div>
+          <button 
+            onClick={resetMarbles}
+            className={`w-3 h-3 rounded-full bg-white transition-all duration-500 hover:scale-125 opacity-60 hover:opacity-100 shadow-[0_0_10px_rgba(255,255,255,0.3)]`}
+          />
+        </div>
 
-        <div id="dashboard-ui" className="w-full h-full relative flex flex-col items-center justify-center z-10">
-          
-          {/* Header */}
-          <div className="absolute top-4 md:top-8 w-full max-w-2xl px-4 md:px-6 z-50">
-            <div className="flex justify-between text-[8px] md:text-[10px] tracking-[0.2em] md:tracking-[0.5em] opacity-60 mb-3 font-black uppercase text-gray-600">
-              <span>JAN 21</span>
-              <span className="text-blue-300 opacity-100 flex items-center gap-2 bg-blue-900/30 px-3 md:px-4 py-1.5 rounded-full border border-blue-500/30 shadow-sm whitespace-nowrap">
-                <span>{daysRemaining}</span> Days To Summit
-              </span>
-              <span>MAY 15</span>
-            </div>
-            <div className="w-full h-1 bg-white/10 rounded-full relative mt-4 overflow-hidden">
-              <div className="absolute top-0 left-0 h-full bg-gradient-to-r from-blue-800 via-blue-500 to-teal-400 transition-all duration-1000" style={{ width: progressWidth }}></div>
-            </div>
-          </div>
+        {/* MAIN 3D DASHBOARD */}
+        <div id="perspective-root">
+          <div id="marble-floor"></div>
 
-          {/* Centerpiece */}
-          <div className="relative w-full h-full flex items-center justify-center">
-            <div id="orbit-guide"></div>
-            <div className="avatar-shadow"></div>
+          <div id="dashboard-ui" className="w-full h-full relative flex flex-col items-center justify-center z-10">
             
-            {/* Unified 3D Layer */}
-            <div className="absolute inset-0">
-              <Canvas camera={{ position: [0, 0, 10], fov: 45 }}>
-                <PhysicsLoop />
-              </Canvas>
+            {/* Header */}
+            <div className="absolute top-4 md:top-8 w-full max-w-2xl px-4 md:px-6 z-50">
+              <div className="flex justify-between text-[8px] md:text-[10px] tracking-[0.2em] md:tracking-[0.5em] opacity-60 mb-3 font-black uppercase text-gray-600 dark:text-gray-400">
+                <span>JAN 21</span>
+                <span className="text-blue-600 dark:text-blue-300 opacity-100 flex items-center gap-2 bg-blue-100/50 dark:bg-blue-900/30 px-3 md:px-4 py-1.5 rounded-full border border-blue-200 dark:border-blue-500/30 shadow-sm whitespace-nowrap">
+                  <span>{daysRemaining}</span> Days To Summit
+                </span>
+                <span>MAY 15</span>
+              </div>
+              <div className="w-full h-1 bg-black/5 dark:bg-white/10 rounded-full relative mt-4 overflow-hidden">
+                <div className="absolute top-0 left-0 h-full bg-gradient-to-r from-blue-800 via-blue-500 to-teal-400 transition-all duration-1000" style={{ width: progressWidth }}></div>
+              </div>
             </div>
 
-            {/* Avatar Labels */}
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 translate-y-28 text-center pointer-events-none z-20">
-              <h1 className="text-2xl md:text-4xl font-black tracking-[0.4em] text-blue-900 uppercase">Zen Egg</h1>
-              <p className="text-[8px] md:text-[10px] font-black tracking-[0.3em] text-blue-600 uppercase mt-2">Flow State</p>
+            {/* Centerpiece */}
+            <div className="relative w-full h-full flex items-center justify-center">
+              <div className="avatar-shadow"></div>
+              
+              {/* Unified 3D Layer */}
+              <div className="absolute inset-0">
+                <Canvas camera={{ position: [0, 0, 10], fov: 45 }}>
+                  <Suspense fallback={
+                    <Html center>
+                      <div className="text-blue-500 font-black text-[10px] uppercase tracking-widest animate-pulse">Loading Zen State...</div>
+                    </Html>
+                  }>
+                    <PhysicsLoop 
+                      engineRef={engineRef}
+                      marblesRef={marblesRef}
+                      currentMode={currentMode}
+                      currentStyle={currentStyle}
+                      handleOrbClick={handleOrbClick}
+                      handleAvatarClick={handleAvatarClick}
+                      playAcousticTap={playAcousticTap}
+                      isDarkMode={isDarkMode}
+                      orbitRotationRef={orbitRotationRef}
+                    />
+                  </Suspense>
+                </Canvas>
+              </div>
+
+              {/* Avatar Labels */}
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 translate-y-28 text-center pointer-events-none z-20">
+                <h1 className="text-2xl md:text-4xl font-black tracking-[0.4em] text-blue-900 dark:text-blue-100 uppercase transition-colors duration-500">Zen Egg</h1>
+                <p className="text-[8px] md:text-[10px] font-black tracking-[0.3em] text-blue-600 dark:text-blue-400 uppercase mt-2 transition-colors duration-500">Flow State</p>
+              </div>
+
+              {/* Labels (Overlay) */}
+              {currentMode === 'orbit' && PILLARS.map((orb, i) => {
+                const angle = orbitRotationRef.current + (i / PILLARS.length) * (Math.PI * 2);
+                const x = Math.cos(angle) * 3;
+                const y = Math.sin(angle) * 3;
+                return (
+                  <div 
+                    key={orb.id}
+                    className="absolute pointer-events-none text-[8px] md:text-[10px] font-black tracking-[0.2em] text-center opacity-70 uppercase font-mono select-none text-white"
+                    style={{ 
+                      left: `calc(50% + ${x * 50}px)`, 
+                      top: `calc(50% - ${y * 50}px)`,
+                      transform: 'translate(-50%, 20px)'
+                    }}
+                  >
+                    {orb.label}
+                  </div>
+                );
+              })}
             </div>
 
-            {/* Labels (Overlay) */}
-            {currentMode === 'orbit' && PILLARS.map((orb, i) => {
-              const angle = orbitRotationRef.current + (i / PILLARS.length) * (Math.PI * 2);
-              const x = Math.cos(angle) * 3;
-              const y = Math.sin(angle) * 3;
-              return (
-                <div 
-                  key={orb.id}
-                  className="absolute pointer-events-none text-[8px] md:text-[10px] font-black tracking-[0.2em] text-center opacity-70 uppercase font-mono select-none text-white"
-                  style={{ 
-                    left: `calc(50% + ${x * 50}px)`, 
-                    top: `calc(50% - ${y * 50}px)`,
-                    transform: 'translate(-50%, 20px)'
-                  }}
-                >
-                  {orb.label}
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Footer */}
-          <div className="absolute bottom-6 md:bottom-10 text-[8px] md:text-[10px] opacity-40 uppercase tracking-[0.5em] md:tracking-[1em] font-black flex gap-6 md:gap-10 items-center select-none text-blue-800 justify-center w-full">
-            <span>Zen Egg Scholar</span>
-            <span className="w-1.5 h-1.5 md:w-2 md:h-2 bg-blue-500 rounded-full animate-pulse"></span>
-            <span>{currentDate}</span>
+            {/* Footer */}
+            <div className="absolute bottom-6 md:bottom-10 text-[8px] md:text-[10px] opacity-40 uppercase tracking-[0.5em] md:tracking-[1em] font-black flex gap-6 md:gap-10 items-center select-none text-blue-800 dark:text-blue-300 justify-center w-full transition-colors duration-500">
+              <span>Zen Egg Scholar</span>
+              <span className="w-1.5 h-1.5 md:w-2 md:h-2 bg-blue-500 rounded-full animate-pulse"></span>
+              <span>{currentDate}</span>
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Modals */}
-      {modalInfo && (
-        <>
-          <div 
-            className="fixed inset-0 bg-black/60 backdrop-blur-md z-[600] cursor-pointer" 
-            onClick={() => setModalInfo(null)}
-          ></div>
-          <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[92%] max-w-sm bg-[#0d0d10]/95 border border-white/10 backdrop-blur-3xl p-6 md:p-10 rounded-[2.5rem] z-[700] shadow-[0_40px_100px_rgba(0,0,0,0.8)] modal-enter text-gray-100">
-            <div className="flex justify-between items-start mb-6 text-left">
-              <div className="flex items-center gap-4">
-                <div 
-                  className="w-14 h-14 md:w-20 md:h-20 rounded-[1.5rem] flex items-center justify-center bg-white/5 border border-white/10 shadow-inner overflow-hidden flex-shrink-0 text-3xl md:text-5xl"
-                  style={{ color: modalInfo.color }}
+        {/* Modals */}
+        {modalInfo && (
+          <>
+            <div 
+              className="fixed inset-0 bg-black/60 backdrop-blur-md z-[600] cursor-pointer" 
+              onClick={() => setModalInfo(null)}
+            ></div>
+            <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[92%] max-w-sm bg-[#0d0d10]/95 border border-white/10 backdrop-blur-3xl p-6 md:p-10 rounded-[2.5rem] z-[700] shadow-[0_40px_100px_rgba(0,0,0,0.8)] modal-enter text-gray-100">
+              <div className="flex justify-between items-start mb-6 text-left">
+                <div className="flex items-center gap-4">
+                  <div 
+                    className="w-14 h-14 md:w-20 md:h-20 rounded-[1.5rem] flex items-center justify-center bg-white/5 border border-white/10 shadow-inner overflow-hidden flex-shrink-0 text-3xl md:text-5xl"
+                    style={{ color: modalInfo.color }}
+                  >
+                    {modalInfo.icon}
+                  </div>
+                  <div>
+                    <h3 className="font-black text-lg md:text-3xl tracking-tight uppercase leading-none text-white">
+                      {modalInfo.title}
+                    </h3>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setModalInfo(null)} 
+                  className="p-2 md:p-4 -mt-2 -mr-2 md:-mr-4 opacity-30 hover:opacity-100 transition-all hover:rotate-90 text-2xl md:text-4xl leading-none text-white"
                 >
-                  {modalInfo.icon}
-                </div>
-                <div>
-                  <h3 className="font-black text-lg md:text-3xl tracking-tight uppercase leading-none text-white">
-                    {modalInfo.title}
-                  </h3>
-                </div>
+                  ✕
+                </button>
               </div>
-              <button 
-                onClick={() => setModalInfo(null)} 
-                className="p-2 md:p-4 -mt-2 -mr-2 md:-mr-4 opacity-30 hover:opacity-100 transition-all hover:rotate-90 text-2xl md:text-4xl leading-none text-white"
-              >
-                ✕
-              </button>
+              <div className="bg-white/5 p-5 md:p-8 rounded-[1.5rem] border border-white/5 shadow-inner text-left">
+                <p className="text-xs md:text-sm leading-relaxed text-gray-300 font-medium tracking-tight">
+                  {modalInfo.text}
+                </p>
+              </div>
             </div>
-            <div className="bg-white/5 p-5 md:p-8 rounded-[1.5rem] border border-white/5 shadow-inner text-left">
-              <p className="text-xs md:text-sm leading-relaxed text-gray-300 font-medium tracking-tight">
-                {modalInfo.text}
-              </p>
-            </div>
-          </div>
-        </>
-      )}
-    </div>
+          </>
+        )}
+      </div>
+    </ErrorBoundary>
   );
 }
