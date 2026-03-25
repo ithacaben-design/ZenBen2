@@ -241,6 +241,7 @@ function PhysicsLoop({
   marblesRef, 
   currentMode, 
   currentStyle, 
+  marblesVisible,
   handleOrbClick, 
   handleAvatarClick, 
   playAcousticTap,
@@ -272,37 +273,37 @@ function PhysicsLoop({
     }
   });
 
-  const handleBackgroundClick = (e: any) => {
+  const handleBackgroundClick = (point: THREE.Vector3) => {
     if (currentMode === 'orbit' || currentMode === 'koi') return;
     
-    const vector = new THREE.Vector3(
-      (e.clientX / window.innerWidth) * 2 - 1,
-      -(e.clientY / window.innerHeight) * 2 + 1,
-      0.5
-    );
-    vector.unproject(camera);
-    const dir = vector.sub(camera.position).normalize();
-    const distance = -camera.position.z / dir.z;
-    const pos = camera.position.clone().add(dir.multiplyScalar(distance));
-
     marblesRef.current.forEach((m: any) => {
-      const dx = m.body.position.x - pos.x;
-      const dy = m.body.position.y - (-pos.y); 
+      const dx = m.body.position.x - point.x;
+      const dy = m.body.position.y - (-point.y); 
       const dist = Math.sqrt(dx * dx + dy * dy);
-      const force = 0.05 / (dist + 0.5);
+      const force = 0.2 / (dist + 0.5); // Increased force
       Matter.Body.applyForce(m.body, m.body.position, {
         x: (dx / dist) * force,
         y: (dy / dist) * force
       });
     });
     
-    playAcousticTap(10);
+    playAcousticTap(15);
   };
 
   return (
-    <group onPointerDown={(e) => {
-      if (e.intersections.length === 0) handleBackgroundClick(e);
-    }}>
+    <group>
+      {/* Background Plane to catch clicks */}
+      <mesh 
+        position={[0, 0, -1]} 
+        onPointerDown={(e) => {
+          e.stopPropagation();
+          handleBackgroundClick(e.point);
+        }}
+        visible={false}
+      >
+        <planeGeometry args={[20, 20]} />
+      </mesh>
+
       <AvatarFrame onClick={handleAvatarClick} isDarkMode={isDarkMode} />
       
       {currentMode === 'orbit' && (
@@ -311,7 +312,7 @@ function PhysicsLoop({
         </Torus>
       )}
 
-      {marblesRef.current.map((m: any, i: number) => (
+      {marblesVisible && marblesRef.current.map((m: any, i: number) => (
         <MarbleMesh 
           key={m.id} 
           orb={PILLARS[i]} 
@@ -388,12 +389,14 @@ export default function App() {
   });
   const [currentMode, setCurrentMode] = useState('orbit');
   const [currentStyle, setCurrentStyle] = useState('cats-eye');
+  const [marblesVisible, setMarblesVisible] = useState(true);
   const [modalInfo, setModalInfo] = useState<{ title: string, text: string, icon: string, color: string } | null>(null);
   const [dialogue, setDialogue] = useState<string | null>(null);
   const [daysRemaining, setDaysRemaining] = useState('--');
   const [currentDate, setCurrentDate] = useState('--');
   const [progressWidth, setProgressWidth] = useState('0%');
   const [unlockedModes, setUnlockedModes] = useState<string[]>(['orbit']);
+  const [marblesInitialized, setMarblesInitialized] = useState(false);
 
   const engineRef = useRef<Matter.Engine | null>(null);
   const marblesRef = useRef<any[]>([]);
@@ -438,6 +441,7 @@ export default function App() {
       return { id: pillar.id, body, fillLevel: 0, logs: 0, info: pillar.info };
     });
     marblesRef.current = marbles;
+    setMarblesInitialized(true);
 
     // Load state
     const saved = localStorage.getItem('marbles_master_save_v7');
@@ -503,12 +507,12 @@ export default function App() {
     if (currentMode !== 'orbit' && currentMode !== 'koi') {
       const wallThickness = 1;
       const width = 10;
-      const height = 14;
+      const height = 10; // Adjusted from 14 to 10 to be closer to visible area
       newStatics.push(
-        Matter.Bodies.rectangle(0, -height/2, width, wallThickness, { isStatic: true }), // Top
-        Matter.Bodies.rectangle(0, height/2, width, wallThickness, { isStatic: true }),  // Bottom
-        Matter.Bodies.rectangle(-width/2, 0, wallThickness, height, { isStatic: true }), // Left
-        Matter.Bodies.rectangle(width/2, 0, wallThickness, height, { isStatic: true })   // Right
+        Matter.Bodies.rectangle(0, -height/2, width, wallThickness, { isStatic: true, restitution: 0.5 }), // Top
+        Matter.Bodies.rectangle(0, height/2, width, wallThickness, { isStatic: true, restitution: 0.5 }),  // Bottom
+        Matter.Bodies.rectangle(-width/2, 0, wallThickness, height, { isStatic: true, restitution: 0.5 }), // Left
+        Matter.Bodies.rectangle(width/2, 0, wallThickness, height, { isStatic: true, restitution: 0.5 })   // Right
       );
     }
 
@@ -680,7 +684,7 @@ export default function App() {
   // Physics Loop Component
   // Moved outside to prevent re-definitions causing white screens
 
-  // Handle Tilt for mobile
+  // Handle Tilt for mobile and mouse for desktop
   useEffect(() => {
     const handleOrientation = (e: DeviceOrientationEvent) => {
       if (!engineRef.current) return;
@@ -692,8 +696,22 @@ export default function App() {
       }
     };
 
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!engineRef.current) return;
+      if (currentMode === 'sandbox' || currentMode === 'maze') {
+        const x = (e.clientX / window.innerWidth) * 2 - 1;
+        const y = (e.clientY / window.innerHeight) * 2 - 1;
+        engineRef.current.gravity.x = x * 1.5;
+        engineRef.current.gravity.y = y * 1.5 + 0.5; // Slight downward bias
+      }
+    };
+
     window.addEventListener('deviceorientation', handleOrientation);
-    return () => window.removeEventListener('deviceorientation', handleOrientation);
+    window.addEventListener('mousemove', handleMouseMove);
+    return () => {
+      window.removeEventListener('deviceorientation', handleOrientation);
+      window.removeEventListener('mousemove', handleMouseMove);
+    };
   }, [currentMode]);
 
   return (
@@ -731,6 +749,13 @@ export default function App() {
             onClick={() => setCurrentStyle('crystal')} 
             className={`w-3 h-3 rounded-full bg-cyan-200 transition-all ${currentStyle === 'crystal' ? 'scale-125 ring-2 ring-white' : 'opacity-40 hover:opacity-100'}`}
           />
+          <button 
+            onClick={() => setMarblesVisible(!marblesVisible)} 
+            title={marblesVisible ? "Hide Marbles" : "Show Marbles"}
+            className={`w-3 h-3 rounded-full border-2 border-white/20 transition-all flex items-center justify-center ${!marblesVisible ? 'scale-125 ring-2 ring-white bg-white/10' : 'opacity-40 hover:opacity-100'}`}
+          >
+            {!marblesVisible && <div className="w-1 h-1 bg-white rounded-full" />}
+          </button>
         </div>
 
         {/* MODE MENU */}
@@ -748,8 +773,11 @@ export default function App() {
           <div className="w-px h-4 bg-white/10 mx-1"></div>
           <button 
             onClick={resetMarbles}
-            className={`w-3 h-3 rounded-full bg-white transition-all duration-500 hover:scale-125 opacity-60 hover:opacity-100 shadow-[0_0_10px_rgba(255,255,255,0.3)]`}
-          />
+            title="Reset Marbles"
+            className={`w-3 h-3 rounded-full bg-white transition-all duration-500 hover:scale-125 opacity-60 hover:opacity-100 shadow-[0_0_10px_rgba(255,255,255,0.3)] flex items-center justify-center`}
+          >
+            <div className="w-1 h-1 bg-black rounded-full" />
+          </button>
         </div>
 
         {/* MAIN 3D DASHBOARD */}
@@ -789,6 +817,7 @@ export default function App() {
                       marblesRef={marblesRef}
                       currentMode={currentMode}
                       currentStyle={currentStyle}
+                      marblesVisible={marblesVisible}
                       handleOrbClick={handleOrbClick}
                       handleAvatarClick={handleAvatarClick}
                       playAcousticTap={playAcousticTap}
@@ -806,7 +835,7 @@ export default function App() {
               </div>
 
               {/* Labels (Overlay) */}
-              {currentMode === 'orbit' && PILLARS.map((orb, i) => {
+              {marblesVisible && currentMode === 'orbit' && PILLARS.map((orb, i) => {
                 const angle = orbitRotationRef.current + (i / PILLARS.length) * (Math.PI * 2);
                 const x = Math.cos(angle) * 3;
                 const y = Math.sin(angle) * 3;
