@@ -1,20 +1,29 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# ZenBearOS 🐻
 
-# Run and deploy your AI Studio app
+[![Deploy static content to Pages](https://github.com/ithacaben-design/ZenBen2/actions/workflows/deploy.yml/badge.svg)](https://github.com/ithacaben-design/ZenBen2/actions/workflows/deploy.yml)
 
-This contains everything you need to run your app locally.
+**ZenBearOS** is a physics-driven 3D dashboard designed for deep focus and academic progress tracking. It uses a "marble filling" mechanic to represent progress on academic pillars, with interactive modes and a "Zen Bear" avatar to guide the flow state.
 
-View your app in AI Studio: https://ai.studio/apps/0f9bd5e3-35f4-409a-8808-3534eca85946
+## Features
 
-## Run Locally
+- **3D Physics Environment:** Interactive marbles and avatar driven by Matter.js and React Three Fiber.
+- **Academic Progress Tracking:** Real-time feedback on course standing and completion.
+- **Zen Bear Avatar:** A thematic guide for focus and productivity.
+- **Multiple Modes:** Orbit, Sandbox, Billiards, Pinball, and Maze modes for different focus states.
+- **Dynamic Theming:** Support for dark and light modes with persistent settings.
+- **OS Interface:** A clean, OS-style top bar with system status icons.
 
-**Prerequisites:**  Node.js
+## Tech Stack
 
+- **React**
+- **Vite**
+- **Three.js / React Three Fiber**
+- **Matter.js**
+- **Tailwind CSS**
+- **Lucide React**
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+## Deployment
+
+This project is automatically deployed to GitHub Pages via GitHub Actions.
+
+Live URL: [https://ithacaben-design.github.io/ZenBen2/](https://ithacaben-design.github.io/ZenBen2/)

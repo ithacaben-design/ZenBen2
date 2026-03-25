@@ -43,16 +43,16 @@ class ErrorBoundary extends Component<{ children: React.ReactNode }, { hasError:
 }
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { Sphere, MeshDistortMaterial, Environment, PerspectiveCamera, Cylinder, Box, Torus, TorusKnot, Octahedron, Text, useTexture, Html } from '@react-three/drei';
-import { Moon, Sun } from 'lucide-react';
+import { Moon, Sun, Battery, Wifi, Signal, Clock, Layout, Settings, Activity, Cloud, Terminal } from 'lucide-react';
 import * as THREE from 'three';
 import Matter from 'matter-js';
 
 const DIALOGUE: Record<string, string[]> = {
-  quant: ["Logic is the foundation", "Numbers tell a story", "Precision in every step"],
-  psych: ["Understand the mind", "Behavior is a map", "Empathy through insight"],
-  soc: ["Connection is life", "Presence is a gift", "We grow together"],
-  write: ["Words carry weight", "Narrative is power", "Refine the voice"],
-  math: ["Support the structure", "Build the base", "Patterns emerge"]
+  quant: ["Bear with the logic", "Numbers are just honey", "Precision is the bear necessity"],
+  psych: ["Paws for reflection", "Mind like a calm forest", "Hibernate on the insights"],
+  soc: ["Stronger in a sleuth", "Presence is a warm hug", "Grow like a cub"],
+  write: ["Claw through the narrative", "Ink like a forest trail", "Refine the roar"],
+  math: ["Sturdy as a grizzly", "Build the den", "Patterns in the stars"]
 };
 
 const PILLARS = [
@@ -189,10 +189,6 @@ function MarbleMesh({ orb, body, currentMode, currentStyle, fillLevel, onClick }
 function AvatarFrame({ onClick, isDarkMode }: { onClick: () => void, isDarkMode: boolean }) {
   const groupRef = useRef<THREE.Group>(null);
   
-  // Use a more reliable texture or fallback to color if it fails
-  // Using a smaller, more common Unsplash ID
-  const marbleTexture = useTexture('https://images.unsplash.com/photo-1519750783826-e2420f4d687f?q=80&w=500&auto=format&fit=crop');
-  
   useFrame((state) => {
     if (groupRef.current) {
       groupRef.current.position.y = Math.sin(state.clock.elapsedTime * 1.2) * 0.1;
@@ -208,22 +204,56 @@ function AvatarFrame({ onClick, isDarkMode }: { onClick: () => void, isDarkMode:
         <meshBasicMaterial color="#3b82f6" transparent opacity={0.05} />
       </mesh>
 
-      {/* 3D Marble Egg */}
-      <Sphere args={[1.8, 64, 32]} scale={[1, 1.4, 1]}>
+      {/* 3D Marble Bear Head */}
+      <Sphere args={[1.8, 64, 32]} scale={[1, 1.1, 0.9]}>
         <MeshDistortMaterial 
-          map={marbleTexture}
-          color="#ffffff"
+          color={isDarkMode ? "#ffffff" : "#f0f0f0"}
           roughness={0.1}
           metalness={0.2}
-          distort={0.2}
+          distort={0.15}
           speed={2}
           emissive="#60a5fa"
           emissiveIntensity={0.2}
         />
       </Sphere>
 
+      {/* Bear Ears */}
+      <group position={[0, 1.2, 0]}>
+        <Sphere args={[0.5, 32, 32]} position={[-1, 0.4, 0]} scale={[1, 1, 0.6]}>
+          <meshPhysicalMaterial color="#ffffff" roughness={0.1} metalness={0.2} transmission={0.5} thickness={0.5} />
+        </Sphere>
+        <Sphere args={[0.5, 32, 32]} position={[1, 0.4, 0]} scale={[1, 1, 0.6]}>
+          <meshPhysicalMaterial color="#ffffff" roughness={0.1} metalness={0.2} transmission={0.5} thickness={0.5} />
+        </Sphere>
+        {/* Inner Ears */}
+        <Sphere args={[0.3, 32, 32]} position={[-1, 0.4, 0.1]} scale={[1, 1, 0.2]}>
+          <meshBasicMaterial color="#3b82f6" transparent opacity={0.3} />
+        </Sphere>
+        <Sphere args={[0.3, 32, 32]} position={[1, 0.4, 0.1]} scale={[1, 1, 0.2]}>
+          <meshBasicMaterial color="#3b82f6" transparent opacity={0.3} />
+        </Sphere>
+      </group>
+
+      {/* Bear Face Features */}
+      <group position={[0, 0, 1.6]}>
+        {/* Eyes */}
+        <Sphere args={[0.1, 16, 16]} position={[-0.4, 0.3, 0]}>
+          <meshBasicMaterial color="#111111" />
+        </Sphere>
+        <Sphere args={[0.1, 16, 16]} position={[0.4, 0.3, 0]}>
+          <meshBasicMaterial color="#111111" />
+        </Sphere>
+        {/* Nose/Muzzle */}
+        <Sphere args={[0.3, 32, 32]} position={[0, -0.1, 0]} scale={[1, 0.8, 0.5]}>
+          <meshPhysicalMaterial color="#ffffff" roughness={0.1} metalness={0.1} transmission={0.5} thickness={0.5} />
+        </Sphere>
+        <Sphere args={[0.08, 16, 16]} position={[0, -0.05, 0.15]}>
+          <meshBasicMaterial color="#111111" />
+        </Sphere>
+      </group>
+
       {/* Blue Vein Detail Layer */}
-      <Sphere args={[1.81, 64, 32]} scale={[1, 1.4, 1]}>
+      <Sphere args={[1.81, 64, 32]} scale={[1, 1.1, 0.9]}>
         <meshStandardMaterial 
           color="#2563eb"
           transparent
@@ -374,9 +404,9 @@ function PhysicsLoop({
         </group>
       )}
       
-      <ambientLight intensity={0.8} />
-      <directionalLight position={[5, 5, 5]} intensity={0.7} />
-      <Environment preset="city" />
+      <ambientLight intensity={1.2} />
+      <directionalLight position={[5, 5, 5]} intensity={1.5} />
+      <pointLight position={[-5, -5, -5]} intensity={0.5} color="#60a5fa" />
     </group>
   );
 }
@@ -384,7 +414,7 @@ function PhysicsLoop({
 export default function App() {
   const [isWoken, setIsWoken] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(() => {
-    const saved = localStorage.getItem('zen_egg_theme');
+    const saved = localStorage.getItem('zen_bear_theme');
     return saved ? saved === 'dark' : true; // Default to dark as per current aesthetic
   });
   const [currentMode, setCurrentMode] = useState('orbit');
@@ -394,6 +424,7 @@ export default function App() {
   const [dialogue, setDialogue] = useState<string | null>(null);
   const [daysRemaining, setDaysRemaining] = useState('--');
   const [currentDate, setCurrentDate] = useState('--');
+  const [currentTime, setCurrentTime] = useState('--');
   const [progressWidth, setProgressWidth] = useState('0%');
   const [unlockedModes, setUnlockedModes] = useState<string[]>(['orbit']);
   const [marblesInitialized, setMarblesInitialized] = useState(false);
@@ -406,7 +437,7 @@ export default function App() {
   const audioCtxRef = useRef<AudioContext | null>(null);
 
   useEffect(() => {
-    localStorage.setItem('zen_egg_theme', isDarkMode ? 'dark' : 'light');
+    localStorage.setItem('zen_bear_theme', isDarkMode ? 'dark' : 'light');
   }, [isDarkMode]);
 
   const toggleDarkMode = () => setIsDarkMode(!isDarkMode);
@@ -581,24 +612,29 @@ export default function App() {
   }, [currentMode]);
 
   useEffect(() => {
-    const today = new Date();
-    const options: Intl.DateTimeFormatOptions = { weekday: 'long', month: 'short', day: 'numeric' };
-    setCurrentDate(today.toLocaleDateString('en-US', options));
+    const updateTime = () => {
+      const today = new Date();
+      const options: Intl.DateTimeFormatOptions = { weekday: 'long', month: 'short', day: 'numeric' };
+      setCurrentDate(today.toLocaleDateString('en-US', options));
+      setCurrentTime(today.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }));
 
-    const startOfSemester = new Date('2026-01-21');
-    const endOfSemester = new Date('2026-05-15');
-    
-    const diffTime = Math.max(0, endOfSemester.getTime() - today.getTime());
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    setDaysRemaining(diffDays.toString());
-    
-    const totalDuration = endOfSemester.getTime() - startOfSemester.getTime();
-    const elapsed = today.getTime() - startOfSemester.getTime();
-    const progress = Math.min(100, Math.max(0, (elapsed / totalDuration) * 100));
-    
-    setTimeout(() => {
+      const startOfSemester = new Date('2026-01-21');
+      const endOfSemester = new Date('2026-05-15');
+      
+      const diffTime = Math.max(0, endOfSemester.getTime() - today.getTime());
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      setDaysRemaining(diffDays.toString());
+      
+      const totalDuration = endOfSemester.getTime() - startOfSemester.getTime();
+      const elapsed = today.getTime() - startOfSemester.getTime();
+      const progress = Math.min(100, Math.max(0, (elapsed / totalDuration) * 100));
+      
       setProgressWidth(`${progress.toFixed(1)}%`);
-    }, 500);
+    };
+
+    updateTime();
+    const timer = setInterval(updateTime, 1000);
+    return () => clearInterval(timer);
   }, []);
 
   const playAcousticTap = useCallback((relS: number) => {
@@ -674,9 +710,9 @@ export default function App() {
 
   const handleAvatarClick = () => {
     setModalInfo({
-      title: "Scholar Prime",
-      text: "Flow State Active. The gallery environment is optimized for deep focus and steady practice. Emerald standing maintained.",
-      icon: '🌿',
+      title: "Zen Bear Prime",
+      text: "The forest is quiet. Your focus is steady. ZenBearOS is optimizing your flow state. Emerald standing maintained through consistent practice.",
+      icon: '🐻',
       color: "#10b981"
     });
   };
@@ -717,6 +753,45 @@ export default function App() {
   return (
     <ErrorBoundary>
       <div className={`w-full h-full relative overflow-hidden transition-colors duration-500 ${isDarkMode ? 'dark bg-[#050505]' : 'bg-[#f8fafc]'}`}>
+        
+        {/* OS Top Bar */}
+        <div className="absolute top-0 left-0 right-0 h-8 md:h-10 px-4 md:px-8 flex items-center justify-between z-[500] bg-white/5 backdrop-blur-md border-b border-white/5">
+          <div className="flex items-center gap-4 md:gap-6">
+            <div className="flex items-center gap-2 opacity-60">
+              <Activity size={12} className="md:w-4 md:h-4 text-blue-500" />
+              <span className="text-[8px] md:text-[10px] font-black tracking-widest uppercase text-gray-500 dark:text-gray-400">ZenBearOS v2.0</span>
+            </div>
+            <div className="hidden md:flex items-center gap-4 opacity-40 text-gray-500 dark:text-gray-400">
+              <Layout size={12} />
+              <Cloud size={12} />
+              <Terminal size={12} />
+              <button 
+                onClick={() => window.location.reload()} 
+                className="hover:text-blue-500 transition-colors"
+                title="Sync Data"
+              >
+                <Activity size={12} />
+              </button>
+            </div>
+          </div>
+          
+          <div className="flex items-center gap-4 md:gap-6">
+            <div className="flex items-center gap-2 md:gap-3 opacity-60 text-gray-500 dark:text-gray-400">
+              <Signal size={12} className="md:w-4 md:h-4" />
+              <Wifi size={12} className="md:w-4 md:h-4" />
+              <div className="flex items-center gap-1">
+                <span className="text-[8px] md:text-[10px] font-black tracking-widest">88%</span>
+                <Battery size={12} className="md:w-4 md:h-4" />
+              </div>
+            </div>
+            <div className="h-4 w-[1px] bg-white/10"></div>
+            <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
+              <Clock size={12} className="md:w-4 md:h-4 opacity-60" />
+              <span className="text-[8px] md:text-[10px] font-black tracking-widest">{currentTime}</span>
+            </div>
+          </div>
+        </div>
+
         {!isWoken && (
           <div id="wake-screen" onClick={handleWake}>
             <div id="wake-sphere"></div>
@@ -823,6 +898,7 @@ export default function App() {
                       playAcousticTap={playAcousticTap}
                       isDarkMode={isDarkMode}
                       orbitRotationRef={orbitRotationRef}
+                      key={marblesInitialized ? 'ready' : 'init'}
                     />
                   </Suspense>
                 </Canvas>
@@ -830,8 +906,8 @@ export default function App() {
 
               {/* Avatar Labels */}
               <div className="absolute top-1/2 left-1/2 -translate-x-1/2 translate-y-28 text-center pointer-events-none z-20">
-                <h1 className="text-2xl md:text-4xl font-black tracking-[0.4em] text-blue-900 dark:text-blue-100 uppercase transition-colors duration-500">Zen Egg</h1>
-                <p className="text-[8px] md:text-[10px] font-black tracking-[0.3em] text-blue-600 dark:text-blue-400 uppercase mt-2 transition-colors duration-500">Flow State</p>
+                <h1 className="text-2xl md:text-4xl font-black tracking-[0.4em] text-blue-900 dark:text-blue-100 uppercase transition-colors duration-500">Zen Bear</h1>
+                <p className="text-[8px] md:text-[10px] font-black tracking-[0.3em] text-blue-600 dark:text-blue-400 uppercase mt-2 transition-colors duration-500">Scholar OS</p>
               </div>
 
               {/* Labels (Overlay) */}
@@ -857,7 +933,7 @@ export default function App() {
 
             {/* Footer */}
             <div className="absolute bottom-6 md:bottom-10 text-[8px] md:text-[10px] opacity-40 uppercase tracking-[0.5em] md:tracking-[1em] font-black flex gap-6 md:gap-10 items-center select-none text-blue-800 dark:text-blue-300 justify-center w-full transition-colors duration-500">
-              <span>Zen Egg Scholar</span>
+              <span>Zen Bear OS</span>
               <span className="w-1.5 h-1.5 md:w-2 md:h-2 bg-blue-500 rounded-full animate-pulse"></span>
               <span>{currentDate}</span>
             </div>
